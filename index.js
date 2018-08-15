@@ -4,13 +4,20 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
  
 // parse various different custom JSON types as JSON
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 app.post('/order-created', function(req, res){
   // sending to all connected clients
-  console.log(req.body.id)
+  console.log(req.body);
   io.emit('order-created', req.body.id);
+  return res.json({message: 'Finished'});
+});
+
+app.post('/order-set-price', function(req, res){
+  // sending to all connected clients
+  console.log(req.body);
+  io.emit('order-set-price', req.body.id);
   return res.json({message: 'Finished'});
 });
 
