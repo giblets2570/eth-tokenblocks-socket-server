@@ -1,62 +1,46 @@
 var app = require('express')();
-var bodyParser = require('body-parser');
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
- 
-// parse various different custom JSON types as JSON
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
-app.post('/order-created', function(req, res){
-  // sending to all connected clients
-  io.emit('order-created', req.body.id);
-  for(let broker of req.body.brokers) {
-    io.emit(`order-created-broker:${broker}`, req.body.id);
-  }
-  return res.json({message: 'Finished'});
-});
-
-app.post('/order-set-price', function(req, res){
-  // sending to all connected clients
-  io.emit(`order-set-price:${req.body.id}`);
-  return res.json({message: 'Finished'});
-});
-
-app.post('/order-investor-confirm', function(req, res){
-  // sending to all connected clients
-  io.emit(`order-investor-confirm:${req.body.id}`, req.body.broker_id);
-  return res.json({message: 'Finished'});
-});
-
-app.post('/order-broker-confirm', function(req, res){
-  // sending to all connected clients
-  io.emit(`order-broker-confirm:${req.body.id}`);
-  return res.json({message: 'Finished'});
-});
-
-http.listen(8090, function(){
-  console.log('listening on *:8090');
-});
-
-
-// Oracle service.js
 const rp = require("request-promise");
+const contract = require('truffle-contract')
+const Web3 = require('web3');
 
 const api_url = process.env.API_URL || 'http://localhost:8000'
-const socket_url = process.env.SOCKET_URL || 'http://localhost:8090'
-
-let contract_folder = process.env.CONTRACT_FOLDER
+const socket_url = process.env.SOCKET_URL || ''
+const contract_folder = process.env.CONTRACT_FOLDER
 
 const Oracle = require(`${contract_folder}Oracle.json`)
 const CreateOrder = require(`${contract_folder}CreateOrder.json`)
-const contract = require('truffle-contract')
+const port = process.env.PORT || 8090
 
-const Web3 = require('web3');
+http.listen(port, function(){
+  console.log(`listening on *:${port}`);
+});
+let functions = {
+  "order-created": function(body) {
+    // sending to all connected clients
+    io.emit('order-created', body.id);
+    for(let broker of body.brokers) {
+      io.emit(`order-created-broker:${broker}`, body.id);
+    }
+  },
+  "order-set-price": function(body) {
+    // sending to all connected clients
+    io.emit(`order-set-price:${body.id}`);
+  },
+  "order-investor-confirm": function(body) {
+    // sending to all connected clients
+    io.emit(`order-investor-confirm:${body.id}`, body.broker_id);
+  },
+  "order-broker-confirm": function(body) {
+    // sending to all connected clients
+    io.emit(`order-broker-confirm:${body.id}`);
+  },
+}
+// Oracle service.js
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
-
 const oracle = contract(Oracle)
 const createOrder = contract(CreateOrder)
-
 oracle.setProvider(web3.currentProvider)
 createOrder.setProvider(web3.currentProvider)
 // Dirty hack for web3@1.0.0 support for localhost testrpc
@@ -68,7 +52,6 @@ if (typeof oracle.currentProvider.sendAsync !== "function") {
     );
   };
 }
-
 let events = [
   {name: 'CallbackOrderCreated', api_url_end: 'orders', socket_url_end: 'order-created'},
   {name: 'CallbackOrderSetPrice', api_url_end: 'orders/{index}/set-price', api_type: 'PUT', socket_url_end: 'order-set-price'},
@@ -78,7 +61,6 @@ let events = [
   {name: 'CallbackTokenHoldingsRemoved', api_url_end: 'tokens/holdings-removed', socket_url_end: ''},
   {name: 'CallbackTokenHoldingAdded', api_url_end: 'tokens/holding-added', socket_url_end: ''}
 ]
-
 let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
   api_type = api_type ? api_type : 'POST'
   let args = event.args
@@ -87,21 +69,18 @@ let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, even
     if(args[key].constructor.name == 'BigNumber') args[key] = args[key].toNumber()
     if(api_url_end.includes(`{${key}}`)) api_url_end_clone = api_url_end.replace(`{${key}}`, args[key])
   }
-  
-
   let uri = `${api_url}/${api_url_end_clone}`
   let api_options = {uri:uri,qs:{},body:args,method:api_type,headers:{},json:true}
   try{
     let result = await rp(api_options)
     if(!socket_url_end) return;
     uri = `${socket_url}/${socket_url_end}`
-    let socket_options = {uri:uri,qs:{},body:result,method:'POST',headers:{},json:true}
-    await rp(socket_options)
+    functions[socket_url_end](result)
   }catch(e){
+    console.log(e)
     console.log('error')
   }
 }
-
 web3.eth.getAccounts((err, accounts) => {
   oracle.deployed()
   .then((instance) => {
