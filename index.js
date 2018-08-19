@@ -22,7 +22,8 @@ app.post('/order-set-price', function(req, res){
   // sending to all connected clients
   console.log('/order-set-price');
   console.log(req.body);
-  io.emit('order-set-price', req.body.id);
+  console.log(`order-set-price:${req.body.id}`);
+  io.emit(`order-set-price:${req.body.id}`);
   return res.json({message: 'Finished'});
 });
 
@@ -30,7 +31,8 @@ app.post('/order-investor-confirm', function(req, res){
   // sending to all connected clients
   console.log('/order-investor-confirm');
   console.log(req.body);
-  io.emit('order-investor-confirm', req.body.id);
+  console.log(`order-investor-confirm:${req.body.id}`, req.body.broker_id)
+  io.emit(`order-investor-confirm:${req.body.id}`, req.body.broker_id);
   return res.json({message: 'Finished'});
 });
 
@@ -38,7 +40,8 @@ app.post('/order-broker-confirm', function(req, res){
   // sending to all connected clients
   console.log('/order-broker-confirm');
   console.log(req.body);
-  io.emit('order-broker-confirm', req.body.id);
+  console.log(`order-broker-confirm:${req.body.id}`);
+  io.emit(`order-broker-confirm:${req.body.id}`);
   return res.json({message: 'Finished'});
 });
 
