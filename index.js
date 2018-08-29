@@ -1,8 +1,12 @@
 var app = require('express')();
+var bodyParser = require('body-parser');
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 const rp = require("request-promise");
-const contract = require('truffle-contract')
+const contract = require('truffle-contract');
 const Web3 = require('web3');
 
 const api_url = process.env.API_URL || 'http://localhost:8000'
@@ -19,9 +23,12 @@ http.listen(port, function(){
 let functions = {
   "order-created": function(body) {
     // sending to all connected clients
+    console.log(body)
     io.emit('order-created', body.id);
+    console.log('order-created');
     for(let broker of body.brokers) {
       io.emit(`order-created-broker:${broker}`, body.id);
+      console.log(`order-created-broker:${broker}`);
     }
   },
   "order-set-price": function(body) {
@@ -37,6 +44,15 @@ let functions = {
     io.emit(`order-broker-confirm:${body.id}`);
   },
 }
+
+for(let func in functions) {
+  app.post('/'+func, (req, res) => {
+    console.log(func)
+    functions[func](req.body);
+    return res.json({message: "Done"});
+  })
+}
+
 // Oracle service.js
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 const oracle = contract(Oracle)
@@ -77,8 +93,7 @@ let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, even
     uri = `${socket_url}/${socket_url_end}`
     functions[socket_url_end](result)
   }catch(e){
-    console.log(e)
-    console.log('error')
+    console.log(e.toString())
   }
 }
 web3.eth.getAccounts((err, accounts) => {
