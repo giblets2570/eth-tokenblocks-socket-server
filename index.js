@@ -14,7 +14,7 @@ const socket_url = process.env.SOCKET_URL || ''
 const contract_folder = process.env.CONTRACT_FOLDER
 
 const Oracle = require(`${contract_folder}Oracle.json`)
-const CreateOrder = require(`${contract_folder}CreateOrder.json`)
+const OrderKernel = require(`${contract_folder}OrderKernel.json`)
 const port = process.env.PORT || 8090
 
 http.listen(port, function(){
@@ -31,17 +31,10 @@ let functions = {
       console.log(`order-created-broker:${broker}`);
     }
   },
-  "order-set-price": function(body) {
+  "order-update": function(body) {
     // sending to all connected clients
-    io.emit(`order-set-price:${body.id}`);
-  },
-  "order-investor-confirm": function(body) {
-    // sending to all connected clients
-    io.emit(`order-investor-confirm:${body.id}`, body.broker_id);
-  },
-  "order-broker-confirm": function(body) {
-    // sending to all connected clients
-    io.emit(`order-broker-confirm:${body.id}`);
+    console.log(`order-update:${body.id}`)
+    io.emit(`order-update:${body.id}`);
   },
 }
 
@@ -56,9 +49,10 @@ for(let func in functions) {
 // Oracle service.js
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 const oracle = contract(Oracle)
-const createOrder = contract(CreateOrder)
+const orderKernel = contract(OrderKernel)
 oracle.setProvider(web3.currentProvider)
-createOrder.setProvider(web3.currentProvider)
+orderKernel.setProvider(web3.currentProvider)
+
 // Dirty hack for web3@1.0.0 support for localhost testrpc
 // see https://github.com/trufflesuite/truffle-contract/issues/56#issuecomment-331084530
 if (typeof oracle.currentProvider.sendAsync !== "function") {
@@ -68,15 +62,17 @@ if (typeof oracle.currentProvider.sendAsync !== "function") {
     );
   };
 }
-let events = [
-  {name: 'CallbackOrderCreated', api_url_end: 'orders', socket_url_end: 'order-created'},
-  {name: 'CallbackOrderSetPrice', api_url_end: 'orders/{index}/set-price', api_type: 'PUT', socket_url_end: 'order-set-price'},
-  {name: 'CallbackOrderInvestorConfirm', api_url_end: 'orders/{index}/investor-confirm', api_type: 'PUT', socket_url_end: 'order-investor-confirm'},
-  {name: 'CallbackOrderBrokerConfirm', api_url_end: 'orders/{index}/broker-confirm', api_type: 'PUT', socket_url_end: 'order-broker-confirm'},
+
+let oracleEvents = [
   {name: 'CallbackTokenCreated', api_url_end: 'tokens', socket_url_end: ''},
-  {name: 'CallbackTokenHoldingsRemoved', api_url_end: 'tokens/holdings-removed', socket_url_end: ''},
-  {name: 'CallbackTokenHoldingAdded', api_url_end: 'tokens/holding-added', socket_url_end: ''}
-]
+];
+
+let orderKernelEvents = [
+  {name: 'LogCreate', api_url_end: 'orders/{orderHash}/accepted', api_type: 'PUT'},
+  {name: 'LogConfirmed', api_url_end: 'orders/{orderHash}/confirmed', api_type: 'PUT'}
+];
+
+
 let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
   api_type = api_type ? api_type : 'POST'
   let args = event.args
@@ -99,7 +95,7 @@ let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, even
 web3.eth.getAccounts((err, accounts) => {
   oracle.deployed()
   .then((instance) => {
-    for(let event of events) {
+    for(let event of oracleEvents) {
       if(instance[event.name]){
         instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
         .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
@@ -110,5 +106,16 @@ web3.eth.getAccounts((err, accounts) => {
   })
   .catch((err) => {
     console.log(err)
+  })
+  orderKernel.deployed()
+  .then((instance) => {
+    for(let event of orderKernelEvents) {
+      if(instance[event.name]){
+        instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
+        .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
+      }else{
+        console.log(`No event for ${event.name}`)
+      }
+    }
   })
 })
