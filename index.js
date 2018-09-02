@@ -68,7 +68,6 @@ let oracleEvents = [
 ];
 
 let orderKernelEvents = [
-  {name: 'LogCreate', api_url_end: 'orders/{orderHash}/accepted', api_type: 'PUT'},
   {name: 'LogConfirmed', api_url_end: 'orders/{orderHash}/confirmed', api_type: 'PUT'}
 ];
 
