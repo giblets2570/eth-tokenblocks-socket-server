@@ -14,27 +14,27 @@ const socket_url = process.env.SOCKET_URL || ''
 const contract_folder = process.env.CONTRACT_FOLDER
 
 const Oracle = require(`${contract_folder}Oracle.json`)
-const OrderKernel = require(`${contract_folder}OrderKernel.json`)
+const TradeKernel = require(`${contract_folder}TradeKernel.json`)
 const port = process.env.PORT || 8090
 
 http.listen(port, function(){
   console.log(`listening on *:${port}`);
 });
 let functions = {
-  "order-created": function(body) {
+  "trade-created": function(body) {
     // sending to all connected clients
     console.log(body)
-    io.emit('order-created', body.id);
-    console.log('order-created');
+    io.emit('trade-created', body.id);
+    console.log('trade-created');
     for(let broker of body.brokers) {
-      io.emit(`order-created-broker:${broker}`, body.id);
-      console.log(`order-created-broker:${broker}`);
+      io.emit(`trade-created-broker:${broker}`, body.id);
+      console.log(`trade-created-broker:${broker}`);
     }
   },
-  "order-update": function(body) {
+  "trade-update": function(body) {
     // sending to all connected clients
-    console.log(`order-update:${body.id}`)
-    io.emit(`order-update:${body.id}`);
+    console.log(`trade-update:${body.id}`)
+    io.emit(`trade-update:${body.id}`);
   },
 }
 
@@ -49,9 +49,9 @@ for(let func in functions) {
 // Oracle service.js
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 const oracle = contract(Oracle)
-const orderKernel = contract(OrderKernel)
+const tradeKernel = contract(TradeKernel)
 oracle.setProvider(web3.currentProvider)
-orderKernel.setProvider(web3.currentProvider)
+tradeKernel.setProvider(web3.currentProvider)
 
 // Dirty hack for web3@1.0.0 support for localhost testrpc
 // see https://github.com/trufflesuite/truffle-contract/issues/56#issuecomment-331084530
@@ -67,14 +67,15 @@ let oracleEvents = [
   {name: 'CallbackTokenCreated', api_url_end: 'tokens', socket_url_end: ''},
 ];
 
-let orderKernelEvents = [
-  {name: 'LogConfirmed', api_url_end: 'orders/{orderHash}/confirmed', api_type: 'PUT'}
+let tradeKernelEvents = [
+  {name: 'LogConfirmed', api_url_end: 'trades/{tradeHash}/confirmed', api_type: 'PUT'}
 ];
 
 
 let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
   api_type = api_type ? api_type : 'POST'
   let args = event.args
+  console.log(api_url_end)
   let api_url_end_clone = api_url_end;
   for(let key of Object.keys(event.args)) {
     if(args[key].constructor.name == 'BigNumber') args[key] = args[key].toNumber()
@@ -106,9 +107,9 @@ web3.eth.getAccounts((err, accounts) => {
   .catch((err) => {
     console.log(err)
   })
-  orderKernel.deployed()
+  tradeKernel.deployed()
   .then((instance) => {
-    for(let event of orderKernelEvents) {
+    for(let event of tradeKernelEvents) {
       if(instance[event.name]){
         instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
         .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
