@@ -68,14 +68,13 @@ let oracleEvents = [
 ];
 
 let tradeKernelEvents = [
-  {name: 'LogConfirmed', api_url_end: 'trades/{tradeHash}/confirmed', api_type: 'PUT'}
+  {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'}
 ];
 
 
 let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
   api_type = api_type ? api_type : 'POST'
   let args = event.args
-  console.log(api_url_end)
   let api_url_end_clone = api_url_end;
   for(let key of Object.keys(event.args)) {
     if(args[key].constructor.name == 'BigNumber') args[key] = args[key].toNumber()
