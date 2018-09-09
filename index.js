@@ -11,7 +11,7 @@ const Web3 = require('web3');
 
 const api_url = process.env.API_URL || 'http://localhost:8000'
 const socket_url = process.env.SOCKET_URL || ''
-const contract_folder = process.env.CONTRACT_FOLDER
+const contract_folder = process.env.CONTRACT_FOLDER || './'
 
 const Oracle = require(`${contract_folder}Oracle.json`)
 const TradeKernel = require(`${contract_folder}TradeKernel.json`)
