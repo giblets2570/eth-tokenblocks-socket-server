@@ -12,10 +12,14 @@ const Web3 = require('web3');
 const api_url = process.env.API_URL || 'http://localhost:8000'
 const socket_url = process.env.SOCKET_URL || ''
 const contract_folder = process.env.CONTRACT_FOLDER || './'
-
+const provider = process.env.PROVIDER || 'http://127.0.0.1:8545'
+console.log(provider)
 const Oracle = require(`${contract_folder}Oracle.json`)
 const TradeKernel = require(`${contract_folder}TradeKernel.json`)
 const port = process.env.PORT || 8090
+
+
+
 
 http.listen(port, function(){
   console.log(`listening on *:${port}`);
@@ -47,7 +51,7 @@ for(let func in functions) {
 }
 
 // Oracle service.js
-const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
+const web3 = new Web3(new Web3.providers.HttpProvider(provider));
 const oracle = contract(Oracle)
 const tradeKernel = contract(TradeKernel)
 oracle.setProvider(web3.currentProvider)
@@ -92,6 +96,21 @@ let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, even
   }
 }
 web3.eth.getAccounts((err, accounts) => {
+  tradeKernel.deployed()
+  .then((instance) => {
+    for(let event of tradeKernelEvents) {
+      if(instance[event.name]){
+        instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
+        .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
+      }else{
+        console.log(`No event for ${event.name}`)
+      }
+    }
+  })
+  .catch((err) => {
+    console.log(err)
+  })
+
   oracle.deployed()
   .then((instance) => {
     for(let event of oracleEvents) {
@@ -105,16 +124,5 @@ web3.eth.getAccounts((err, accounts) => {
   })
   .catch((err) => {
     console.log(err)
-  })
-  tradeKernel.deployed()
-  .then((instance) => {
-    for(let event of tradeKernelEvents) {
-      if(instance[event.name]){
-        instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
-        .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
-      }else{
-        console.log(`No event for ${event.name}`)
-      }
-    }
   })
 })
