@@ -9,120 +9,97 @@ const rp = require("request-promise");
 const contract = require('truffle-contract');
 const Web3 = require('web3');
 
+const isUrl = require('is-url');
+
 const api_url = process.env.API_URL || 'http://localhost:8000'
 const socket_url = process.env.SOCKET_URL || ''
 const contract_folder = process.env.CONTRACT_FOLDER || './'
 const provider = process.env.PROVIDER || 'http://127.0.0.1:8545'
-console.log(provider)
-const Oracle = require(`${contract_folder}Oracle.json`)
-const TradeKernel = require(`${contract_folder}TradeKernel.json`)
-const port = process.env.PORT || 8090
 
 
 
-
-http.listen(port, function(){
-  console.log(`listening on *:${port}`);
-});
-let functions = {
-  "trade-created": function(body) {
-    // sending to all connected clients
-    console.log(body)
-    io.emit('trade-created', body.id);
-    console.log('trade-created');
-    for(let broker of body.brokers) {
-      io.emit(`trade-created-broker:${broker}`, body.id);
-      console.log(`trade-created-broker:${broker}`);
-    }
-  },
-  "trade-update": function(body) {
-    // sending to all connected clients
-    console.log(`trade-update:${body.id}`)
-    io.emit(`trade-update:${body.id}`);
-  },
-}
-
-for(let func in functions) {
-  app.post('/'+func, (req, res) => {
-    console.log(func)
-    functions[func](req.body);
-    return res.json({message: "Done"});
-  })
-}
-
-// Oracle service.js
-const web3 = new Web3(new Web3.providers.HttpProvider(provider));
-const oracle = contract(Oracle)
-const tradeKernel = contract(TradeKernel)
-oracle.setProvider(web3.currentProvider)
-tradeKernel.setProvider(web3.currentProvider)
-
-// Dirty hack for web3@1.0.0 support for localhost testrpc
-// see https://github.com/trufflesuite/truffle-contract/issues/56#issuecomment-331084530
-if (typeof oracle.currentProvider.sendAsync !== "function") {
-  oracle.currentProvider.sendAsync = function() {
-    return oracle.currentProvider.send.apply(
-      oracle.currentProvider, arguments
-    );
-  };
-}
-
-let oracleEvents = [
-  {name: 'CallbackTokenCreated', api_url_end: 'tokens', socket_url_end: ''},
-];
-
-let tradeKernelEvents = [
-  {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'}
-];
-
-
-let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
-  api_type = api_type ? api_type : 'POST'
-  let args = event.args
-  let api_url_end_clone = api_url_end;
-  for(let key of Object.keys(event.args)) {
-    if(args[key].constructor.name == 'BigNumber') args[key] = args[key].toNumber()
-    if(api_url_end.includes(`{${key}}`)) api_url_end_clone = api_url_end.replace(`{${key}}`, args[key])
+let main = async () => {
+  let TradeKernel;
+  if(isUrl(contract_folder)){
+    TradeKernel = await rp.get(`${contract_folder}TradeKernel.json`);
+  }else{
+    TradeKernel = require(`${contract_folder}TradeKernel.json`);
   }
-  let uri = `${api_url}/${api_url_end_clone}`
-  let api_options = {uri:uri,qs:{},body:args,method:api_type,headers:{},json:true}
-  try{
-    let result = await rp(api_options)
-    if(!socket_url_end) return;
-    uri = `${socket_url}/${socket_url_end}`
-    functions[socket_url_end](result)
-  }catch(e){
-    console.log(e.toString())
-  }
-}
-web3.eth.getAccounts((err, accounts) => {
-  tradeKernel.deployed()
-  .then((instance) => {
-    for(let event of tradeKernelEvents) {
-      if(instance[event.name]){
-        instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
-        .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
-      }else{
-        console.log(`No event for ${event.name}`)
-      }
-    }
-  })
-  .catch((err) => {
-    console.log(err)
-  })
+  const port = process.env.PORT || 8090
 
-  oracle.deployed()
-  .then((instance) => {
-    for(let event of oracleEvents) {
-      if(instance[event.name]){
-        instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
-        .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
-      }else{
-        console.log(`No event for ${event.name}`)
+  http.listen(port, function(){
+    console.log(`listening on *:${port}`);
+  });
+
+  const functions = {
+    "trade-created": function(body) {
+      // sending to all connected clients
+      console.log(body)
+      io.emit('trade-created', body.id);
+      console.log('trade-created');
+      for(let broker of body.brokers) {
+        io.emit(`trade-created-broker:${broker}`, body.id);
+        console.log(`trade-created-broker:${broker}`);
       }
+    },
+    "trade-update": function(body) {
+      // sending to all connected clients
+      console.log(`trade-update:${body.id}`)
+      io.emit(`trade-update:${body.id}`);
+    },
+  }
+
+  for(let func in functions) {
+    app.post('/'+func, (req, res) => {
+      functions[func](req.body);
+      return res.json({message: "Done"});
+    })
+  }
+
+  const web3 = new Web3(new Web3.providers.HttpProvider(provider));
+  const tradeKernel = contract(TradeKernel)
+  tradeKernel.setProvider(web3.currentProvider)
+
+  let tradeKernelEvents = [
+    {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'}
+  ];
+
+  let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
+    api_type = api_type ? api_type : 'POST'
+    let args = event.args
+    let api_url_end_clone = api_url_end;
+    for(let key of Object.keys(event.args)) {
+      if(args[key].constructor.name == 'BigNumber') args[key] = args[key].toNumber()
+      if(api_url_end.includes(`{${key}}`)) api_url_end_clone = api_url_end.replace(`{${key}}`, args[key])
     }
+    let uri = `${api_url}/${api_url_end_clone}`
+    let api_options = {uri:uri,qs:{},body:args,method:api_type,headers:{},json:true}
+    try{
+      let result = await rp(api_options)
+      if(!socket_url_end) return;
+      uri = `${socket_url}/${socket_url_end}`
+      functions[socket_url_end](result)
+    }catch(e){
+      console.log(e.toString())
+    }
+  }
+  web3.eth.getAccounts((err, accounts) => {
+    tradeKernel.deployed()
+    .then((instance) => {
+      for(let event of tradeKernelEvents) {
+        if(instance[event.name]){
+          instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
+          .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
+        }else{
+          console.log(`No event for ${event.name}`)
+        }
+      }
+    })
+    .catch((err) => {
+      console.log(err)
+    })
   })
-  .catch((err) => {
-    console.log(err)
-  })
-})
+}
+
+
+main()
