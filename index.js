@@ -5,26 +5,10 @@ app.use(bodyParser.json());
 
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
-const rp = require("request-promise");
-const contract = require('truffle-contract');
-const Web3 = require('web3');
 
-const isUrl = require('is-url');
-
-const api_url = process.env.API_URL || 'http://localhost:8000'
-const socket_url = process.env.SOCKET_URL || ''
-const contract_folder = process.env.CONTRACT_FOLDER || './'
-const provider = process.env.PROVIDER || 'http://127.0.0.1:8545'
-
-
+let {watch} = require('./watcher');
 
 let main = async () => {
-  let TradeKernel;
-  if(isUrl(contract_folder)){
-    TradeKernel = await rp.get(`${contract_folder}TradeKernel.json`);
-  }else{
-    TradeKernel = require(`${contract_folder}TradeKernel.json`);
-  }
   const port = process.env.PORT || 8090
 
   http.listen(port, function(){
@@ -55,51 +39,8 @@ let main = async () => {
       return res.json({message: "Done"});
     })
   }
-
-  const web3 = new Web3(new Web3.providers.HttpProvider(provider));
-  const tradeKernel = contract(TradeKernel)
-  tradeKernel.setProvider(web3.currentProvider)
-
-  let tradeKernelEvents = [
-    {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'}
-  ];
-
-  let watchCallback = (api_url_end, socket_url_end, api_type) =>  async (err, event) => {
-    api_type = api_type ? api_type : 'POST'
-    let args = event.args
-    let api_url_end_clone = api_url_end;
-    for(let key of Object.keys(event.args)) {
-      if(args[key].constructor.name == 'BigNumber') args[key] = args[key].toNumber()
-      if(api_url_end.includes(`{${key}}`)) api_url_end_clone = api_url_end.replace(`{${key}}`, args[key])
-    }
-    let uri = `${api_url}/${api_url_end_clone}`
-    let api_options = {uri:uri,qs:{},body:args,method:api_type,headers:{},json:true}
-    try{
-      let result = await rp(api_options)
-      if(!socket_url_end) return;
-      uri = `${socket_url}/${socket_url_end}`
-      functions[socket_url_end](result)
-    }catch(e){
-      console.log(e.toString())
-    }
-  }
-  web3.eth.getAccounts((err, accounts) => {
-    tradeKernel.deployed()
-    .then((instance) => {
-      for(let event of tradeKernelEvents) {
-        if(instance[event.name]){
-          instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
-          .watch(watchCallback(event.api_url_end, event.socket_url_end, event.api_type))
-        }else{
-          console.log(`No event for ${event.name}`)
-        }
-      }
-    })
-    .catch((err) => {
-      console.log(err)
-    })
-  })
 }
 
 
 main()
+watch()
