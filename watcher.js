@@ -12,15 +12,16 @@ const web3 = new Web3(new Web3.providers.HttpProvider(provider));
 let tradeKernelEvents = [
   {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'},
   {name: 'LogCancel', api_url_end: 'trades/cancel', api_type: 'PUT'},
-  {name: 'LogVerified', api_url_end: 'trades/verified', api_type: 'PUT'},
   {name: 'LogComplete', api_url_end: 'orders/complete', api_type: 'PUT'},
 ];
 
 let ettEvents = [
   {name: 'TotalSupplyUpdate', api_url_end: 'users/balance/total-supply', api_type: 'PUT'},
+  {name: 'Transfer', api_url_end: 'users/balance/transfer', api_type: 'PUT'}
 ];
 
-let watchCallback = (api_url_end, api_type) =>  async (err, event) => {
+let watchCallback = (api_url_end, api_type, extra_args={}) => async (err, event) => {
+  console.log(api_url_end)
   api_type = api_type ? api_type : 'POST'
   let args = event.args
   let api_url_end_clone = api_url_end;
@@ -29,6 +30,7 @@ let watchCallback = (api_url_end, api_type) =>  async (err, event) => {
     if(api_url_end.includes(`{${key}}`)) api_url_end_clone = api_url_end.replace(`{${key}}`, args[key])
   }
   let uri = `${api_url}/${api_url_end_clone}`
+  for(let key of Object.keys(extra_args)) args[key] = extra_args[key];
   let api_options = {uri:uri,qs:{},body:args,method:api_type,headers:{},json:true}
   try{
     let result = await rp(api_options);
@@ -64,7 +66,7 @@ let createTokenWatch = (ett) => (err, event) => {
     for(let event of ettEvents) {
       if(instance[event.name]){
         instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
-        .watch(watchCallback(event.api_url_end, event.api_type));
+        .watch(watchCallback(event.api_url_end, event.api_type, {token: tokenAddress}));
       }else{
         console.log(`No event for ${event.name}`);
       }
