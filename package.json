@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "export $(cat .env) && nodemon index.js",
+    "prod": "export $(cat .env.prod) && nodemon index.js",
     "start": "node index.js"
   },
   "author": "",
@@ -17,6 +18,7 @@
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
     "socket.io": "^2.1.1",
+    "tiny-promisify": "^1.0.0",
     "truffle-contract": "^3.0.6"
   }
 }

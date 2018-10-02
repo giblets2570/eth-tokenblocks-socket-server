@@ -6,6 +6,7 @@ const rp = require("request-promise");
 const contract_folder = process.env.CONTRACT_FOLDER || './'
 const provider = process.env.PROVIDER || 'http://127.0.0.1:8545'
 const api_url = process.env.API_URL || 'http://localhost:8000'
+const promisify = require('tiny-promisify')
 
 const web3 = new Web3(new Web3.providers.HttpProvider(provider));
 
@@ -40,11 +41,12 @@ let watchCallback = (api_url_end, api_type, extra_args={}) => async (err, event)
 }
 
 let getContracts = async () => {
+  let network = await promisify(web3.version.getNetwork)()
   let TradeKernel, TokenFactory, ETT;
   if(isUrl(contract_folder)) {
-    TradeKernel = await rp.get(`${contract_folder}TradeKernel.json`);
-    TokenFactory = await rp.get(`${contract_folder}TokenFactory.json`);
-    ETT = await rp.get(`${contract_folder}ETT.json`);
+    TradeKernel = await rp.get(`${contract_folder}TradeKernel.json`, {json:true});
+    TokenFactory = await rp.get(`${contract_folder}TokenFactory.json`, {json:true});
+    ETT = await rp.get(`${contract_folder}ETT.json`, {json:true});
   }else{
     TradeKernel = require(`${contract_folder}TradeKernel.json`);
     TokenFactory = require(`${contract_folder}TokenFactory.json`);
