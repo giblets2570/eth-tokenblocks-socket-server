@@ -13,6 +13,7 @@ let tradeKernelEvents = [
   {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'},
   {name: 'LogCancel', api_url_end: 'trades/cancel', api_type: 'PUT'},
   {name: 'LogComplete', api_url_end: 'orders/complete', api_type: 'PUT'},
+  {name: 'LogError', api_url_end: 'errors'},
 ];
 
 let ettEvents = [
@@ -21,7 +22,6 @@ let ettEvents = [
 ];
 
 let watchCallback = (api_url_end, api_type, extra_args={}) => async (err, event) => {
-  console.log(api_url_end)
   api_type = api_type ? api_type : 'POST'
   let args = event.args
   let api_url_end_clone = api_url_end;
