@@ -62,6 +62,11 @@ let getContracts = async () => {
 }
 
 let createTokenWatch = (ett) => (err, event) => {
+  console.log(err)
+  console.log(event)
+  if(err){
+    return console.log(err)
+  }
   let {tokenAddress} = event.args
   ett.at(tokenAddress)
   .then((instance) => {
@@ -96,7 +101,13 @@ let watch = async () => {
     tokenFactory.deployed()
     .then((instance) => {
       instance.TokenCreated({},{fromBlock: 0, toBlock: 'pending'})
-      .watch(createTokenWatch(ett));
+      .watch((err, event) => {
+        watchCallback('tokens/update/contract','PUT')(err, event)
+        createTokenWatch(ett)(err, event)
+      });
+    })
+    .catch((err) => {
+      console.log(err);
     })
 
   })
