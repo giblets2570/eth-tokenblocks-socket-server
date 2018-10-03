@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "export $(cat .env) && nodemon index.js",
     "prod": "export $(cat .env.prod) && nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "web3": "^0.20.7"
   },
   "author": "",
   "license": "ISC",
@@ -20,10 +21,7 @@
     "socket.io": "^2.1.1",
     "tiny-promisify": "^1.0.0",
     "truffle-contract": "^3.0.6",
-<<<<<<< HEAD
-    "web3": "^0.20.7"
-=======
+    "typedarray-to-buffer": "^3.1.5",
     "web3": "^1.0.0-beta.36"
->>>>>>> upgraded to web3@1
   }
 }
