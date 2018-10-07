@@ -19,7 +19,9 @@ let tradeKernelEvents = [
 
 let ettEvents = [
   {name: 'TotalSupplyUpdate', api_url_end: 'users/balance/total-supply', api_type: 'PUT'},
-  {name: 'Transfer', api_url_end: 'users/balance/transfer', api_type: 'PUT'}
+  {name: 'Transfer', api_url_end: 'users/balance/transfer', api_type: 'PUT'},
+  {name: 'FeeTaken', api_url_end: 'users/balance/fee-taken', api_type: 'PUT'},
+  {name: 'AUMUpdate', api_url_end: 'tokens/contract/aum', api_type: 'PUT'},
 ];
 
 let watchCallback = (api_url_end, api_type, extra_args={}) => async (err, event) => {
@@ -102,7 +104,7 @@ let watch = async () => {
     .then((instance) => {
       instance.TokenCreated({},{fromBlock: 0, toBlock: 'pending'})
       .watch((err, event) => {
-        watchCallback('tokens/update/contract','PUT')(err, event)
+        watchCallback('tokens/contract/update','PUT')(err, event)
         createTokenWatch(ett)(err, event)
       });
     })
