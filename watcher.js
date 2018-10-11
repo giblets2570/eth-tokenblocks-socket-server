@@ -4,14 +4,13 @@ const contract = require('truffle-contract');
 const rp = require("request-promise");
 
 const contract_folder = process.env.CONTRACT_FOLDER || './'
-const provider = process.env.PROVIDER || 'http://127.0.0.1:8545'
+const provider = process.env.PROVIDER || 'http://localhost:8545'
 const api_url = process.env.API_URL || 'http://localhost:8000'
 const promisify = require('tiny-promisify')
 
-let web3 = provider.split(':')[0] === 'http'
-? new Web3(new Web3.providers.HttpProvider(provider))
-: new Web3(new Web3.providers.WebsocketProvider(provider))
-// const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'))
+let web3 = new Web3(new Web3.providers.WebsocketProvider(provider))
+
+
 let tradeKernelEvents = [
   {name: 'LogConfirmed', api_url_end: 'trades/confirmed', api_type: 'PUT'},
   {name: 'LogCancel', api_url_end: 'trades/cancel', api_type: 'PUT'},
@@ -63,12 +62,16 @@ let createTokenWatch = (ETT) => (event) => {
   let {tokenAddress} = event.returnValues
   let ett = new web3.eth.Contract(ETT.abi, tokenAddress)
   for(let event of ettEvents) {
-    if(instance[event.name]){
-      instance[event.name]({},{fromBlock: 0, toBlock: 'pending'})
-      .watch(watchCallback(event.api_url_end, event.api_type, {token: tokenAddress}));
-    }else{
-      console.log(`No event for ${event.name}`);
-    }
+    ett.events[event.name]({
+      fromBlock: 0
+    })
+    .on('data', function(data){
+      return watchCallback(event.api_url_end, event.api_type, {token: tokenAddress})(data)
+    })
+    .on('changed', function(event){
+        // remove event from local database
+    })
+    .on('error', console.error);
   }
 }
 
@@ -94,8 +97,8 @@ let watch = async () => {
       fromBlock: 0
   })
   .on('data', function(data){
-    console.log(data.returnValues)
-    watchCallback('tokens/update/contract','PUT')(data)
+    watchCallback('tokens/contract/update','PUT')(data)
+    createTokenWatch(ETT)(data)
   })
   .on('changed', function(event){
       // remove event from local database

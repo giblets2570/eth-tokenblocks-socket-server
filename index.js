@@ -18,17 +18,13 @@ let main = async () => {
   const functions = {
     "trade-created": function(body) {
       // sending to all connected clients
-      console.log(body)
       io.emit('trade-created', body.id);
-      console.log('trade-created');
       for(let broker of body.brokers) {
         io.emit(`trade-created-broker:${broker}`, body.id);
-        console.log(`trade-created-broker:${broker}`);
       }
     },
     "trade-update": function(body) {
       // sending to all connected clients
-      console.log(`trade-update:${body.id}`)
       io.emit(`trade-update:${body.id}`);
     },
   }
