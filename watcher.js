@@ -21,7 +21,7 @@ let ettEvents = [
   {name: 'TotalSupplyUpdate', api_url_end: 'users/balance/total-supply', api_type: 'PUT'},
   {name: 'Transfer', api_url_end: 'users/balance/transfer', api_type: 'PUT'},
   {name: 'FeeTaken', api_url_end: 'users/balance/fee-taken', api_type: 'PUT'},
-  {name: 'AUMUpdate', api_url_end: 'tokens/contract/aum', api_type: 'PUT'},
+  {name: 'EndOfDay', api_url_end: 'tokens/contract/end-of-day', api_type: 'PUT'},
 ];
 
 let watchCallback = (api_url_end, api_type, extra_args={}) => async (err, event) => {
@@ -104,6 +104,7 @@ let watch = async () => {
     .then((instance) => {
       instance.TokenCreated({},{fromBlock: 0, toBlock: 'pending'})
       .watch((err, event) => {
+        console.log('tokens/contract/update')
         watchCallback('tokens/contract/update','PUT')(err, event)
         createTokenWatch(ett)(err, event)
       });
